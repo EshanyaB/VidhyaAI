@@ -65,21 +65,28 @@ async def search_medicines(request: MedicineRequest):
 Symptoms: {', '.join(request.symptoms)}
 Health Conditions: {', '.join(request.health_conditions)}
 
-Please provide a list of 5-8 Ayurvedic medicines that would be appropriate for these symptoms and conditions.
+Please provide a list of 5-8 BRANDED Ayurvedic medicines (commercial formulations) that would be appropriate for these symptoms and conditions.
+
+IMPORTANT GUIDELINES:
+- Suggest actual BRANDED medicines available in the market (e.g., "Chyawanprash", "Triphala Churna", "Liv.52", "Brahmi Vati", etc.)
+- Include both classical formulations (like Triphala, Dashamularishta) and modern branded products
+- Each medicine should be a POLYHERBAL FORMULATION (combination of multiple herbs/drugs), not single herbs
+- Include the main constituent herbs/drugs in the description
+- Focus on medicines commonly prescribed by Ayurvedic practitioners
 
 For each medicine, provide:
-1. Medicine name (in English and Sanskrit if applicable)
-2. Brief description of what it treats
-3. Recommended dosage
+1. Brand/Product name (commercial name if available, otherwise classical formulation name)
+2. Brief description including main herbs/constituents and what it treats
+3. Recommended dosage (tablets, syrup, churna, etc.)
 4. Best timing to take (e.g., "Before meals", "After meals", "Before bedtime")
 5. Any important precautions
 
 Format your response as a JSON array with the following structure:
 [
   {{
-    "name": "Medicine Name",
-    "description": "What it treats and benefits",
-    "recommended_dosage": "Dosage information",
+    "name": "Brand/Medicine Name (Main constituents in brackets if needed)",
+    "description": "What it treats, benefits, and key ingredients",
+    "recommended_dosage": "Dosage information with form",
     "timing": "When to take",
     "precautions": "Important precautions if any"
   }}

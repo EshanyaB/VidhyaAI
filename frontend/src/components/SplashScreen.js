@@ -107,7 +107,7 @@ export default function SplashScreen({ onFinish }) {
           </Animated.Text>
         </View>
 
-        <Text style={styles.logoText}>AyurvedaGPT</Text>
+        <Text style={styles.logoText}>VaidyaAI</Text>
         <View style={styles.subtitleContainer}>
           <Text style={styles.subtitle}>Smart Prescription Assistant</Text>
           <View style={styles.subtitleUnderline} />

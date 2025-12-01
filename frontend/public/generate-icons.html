@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Generate VaidyaAI Icons</title>
+    <style>
+        body {
+            font-family: system-ui, -apple-system, sans-serif;
+            padding: 40px;
+            background: #f5f5f5;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: white;
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #053445;
+            margin-bottom: 10px;
+        }
+        .subtitle {
+            color: #4B95AF;
+            margin-bottom: 30px;
+        }
+        canvas {
+            border: 2px solid #6DB4CD;
+            border-radius: 8px;
+            margin: 20px 0;
+            display: block;
+        }
+        button {
+            background: #053445;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+            margin: 10px 10px 10px 0;
+        }
+        button:hover {
+            background: #19647F;
+        }
+        .preview {
+            margin-top: 20px;
+            padding: 20px;
+            background: #f0f8fa;
+            border-radius: 8px;
+        }
+        .icon-preview {
+            display: inline-block;
+            margin: 10px;
+            text-align: center;
+        }
+        .icon-preview img {
+            border-radius: 12px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+        }
+        .icon-label {
+            margin-top: 8px;
+            color: #053445;
+            font-size: 12px;
+            font-weight: bold;
+        }
+        .instructions {
+            background: #E8F4F8;
+            padding: 20px;
+            border-radius: 8px;
+            margin-top: 30px;
+            border-left: 4px solid #19647F;
+        }
+        .instructions h3 {
+            color: #053445;
+            margin-top: 0;
+        }
+        .instructions ol {
+            margin: 10px 0;
+            padding-left: 20px;
+        }
+        .instructions li {
+            margin: 8px 0;
+            color: #19647F;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🌿 VaidyaAI Icon Generator</h1>
+        <p class="subtitle">Generate PNG icons for your PWA</p>
+
+        <div class="preview">
+            <h3>Icon Previews:</h3>
+            <div class="icon-preview">
+                <canvas id="canvas512" width="512" height="512"></canvas>
+                <div class="icon-label">512x512px</div>
+            </div>
+            <div class="icon-preview">
+                <canvas id="canvas192" width="192" height="192"></canvas>
+                <div class="icon-label">192x192px</div>
+            </div>
+        </div>
+
+        <div>
+            <button onclick="downloadIcon(512)">📥 Download icon-512.png</button>
+            <button onclick="downloadIcon(192)">📥 Download icon-192.png</button>
+        </div>
+
+        <div class="instructions">
+            <h3>📋 Instructions:</h3>
+            <ol>
+                <li>Click the download buttons above to save both PNG files</li>
+                <li>Move the downloaded files to: <code>frontend/public/</code></li>
+                <li>The files should be named:
+                    <ul>
+                        <li><code>icon-512.png</code></li>
+                        <li><code>icon-192.png</code></li>
+                    </ul>
+                </li>
+                <li>Restart your PWA server</li>
+                <li>Uninstall the old PWA (if installed)</li>
+                <li>Reinstall the PWA - you'll now see the leaf icon! 🌿</li>
+            </ol>
+        </div>
+    </div>
+
+    <script>
+        // Draw leaf icon on canvas
+        function drawLeafIcon(canvas, size) {
+            const ctx = canvas.getContext('2d');
+            const scale = size / 512;
+
+            // Clear canvas
+            ctx.clearRect(0, 0, size, size);
+
+            // Background gradient
+            const gradient = ctx.createLinearGradient(0, 0, 0, size);
+            gradient.addColorStop(0, '#053445');
+            gradient.addColorStop(1, '#19647F');
+
+            // Rounded rectangle background
+            const radius = size * 0.2;
+            ctx.fillStyle = gradient;
+            ctx.beginPath();
+            ctx.roundRect(0, 0, size, size, radius);
+            ctx.fill();
+
+            // Center coordinates
+            const centerX = size / 2;
+            const centerY = size * 0.45;
+
+            // Outer glow
+            ctx.fillStyle = 'rgba(75, 149, 175, 0.15)';
+            ctx.beginPath();
+            ctx.ellipse(centerX, centerY, 85 * scale, 110 * scale, 0, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Main leaf shape
+            ctx.fillStyle = 'rgba(75, 149, 175, 0.4)';
+            ctx.beginPath();
+            ctx.ellipse(centerX, centerY, 75 * scale, 95 * scale, 0, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Center leaf
+            ctx.fillStyle = '#6DB4CD';
+            ctx.shadowColor = 'rgba(0, 0, 0, 0.3)';
+            ctx.shadowBlur = 8 * scale;
+            ctx.shadowOffsetY = 4 * scale;
+            ctx.beginPath();
+            ctx.ellipse(centerX, centerY, 60 * scale, 85 * scale, 0, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.shadowColor = 'transparent';
+            ctx.shadowBlur = 0;
+
+            // Leaf vein
+            ctx.strokeStyle = 'rgba(5, 52, 69, 0.3)';
+            ctx.lineWidth = 4 * scale;
+            ctx.beginPath();
+            ctx.moveTo(centerX, centerY - 85 * scale);
+            ctx.lineTo(centerX, centerY + 85 * scale);
+            ctx.stroke();
+
+            // Side veins
+            ctx.strokeStyle = 'rgba(5, 52, 69, 0.25)';
+            ctx.lineWidth = 2.5 * scale;
+
+            // Left veins
+            drawVein(ctx, centerX, centerY - 50 * scale, centerX - 25 * scale, centerY - 15 * scale);
+            drawVein(ctx, centerX, centerY - 25 * scale, centerX - 30 * scale, centerY);
+            drawVein(ctx, centerX, centerY, centerX - 30 * scale, centerY + 25 * scale);
+            drawVein(ctx, centerX, centerY + 25 * scale, centerX - 25 * scale, centerY + 55 * scale);
+
+            // Right veins
+            drawVein(ctx, centerX, centerY - 50 * scale, centerX + 25 * scale, centerY - 15 * scale);
+            drawVein(ctx, centerX, centerY - 25 * scale, centerX + 30 * scale, centerY);
+            drawVein(ctx, centerX, centerY, centerX + 30 * scale, centerY + 25 * scale);
+            drawVein(ctx, centerX, centerY + 25 * scale, centerX + 25 * scale, centerY + 55 * scale);
+
+            // App name
+            if (size >= 512) {
+                ctx.fillStyle = '#6DB4CD';
+                ctx.font = `bold ${48 * scale}px system-ui, -apple-system, sans-serif`;
+                ctx.textAlign = 'center';
+                ctx.fillText('VaidyaAI', centerX, size * 0.83);
+
+                ctx.fillStyle = '#4B95AF';
+                ctx.font = `500 ${22 * scale}px system-ui, -apple-system, sans-serif`;
+                ctx.fillText('SMART PRESCRIPTION ASSISTANT', centerX, size * 0.91);
+            } else {
+                ctx.fillStyle = '#6DB4CD';
+                ctx.font = `bold ${16 * scale}px system-ui, -apple-system, sans-serif`;
+                ctx.textAlign = 'center';
+                ctx.fillText('VaidyaAI', centerX, size * 0.81);
+            }
+        }
+
+        function drawVein(ctx, x1, y1, x2, y2) {
+            ctx.beginPath();
+            ctx.moveTo(x1, y1);
+            ctx.quadraticCurveTo(
+                x1 + (x2 - x1) * 0.5,
+                y1 + (y2 - y1) * 0.3,
+                x2,
+                y2
+            );
+            ctx.stroke();
+        }
+
+        function downloadIcon(size) {
+            const canvas = document.getElementById(`canvas${size}`);
+            canvas.toBlob(function(blob) {
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `icon-${size}.png`;
+                a.click();
+                URL.revokeObjectURL(url);
+            });
+        }
+
+        // Draw icons on load
+        window.onload = function() {
+            drawLeafIcon(document.getElementById('canvas512'), 512);
+            drawLeafIcon(document.getElementById('canvas192'), 192);
+        };
+    </script>
+</body>
+</html>

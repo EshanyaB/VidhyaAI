@@ -1,7 +1,7 @@
 {
   "expo": {
-    "name": "AyurvedaGPT",
-    "slug": "ayurveda-gpt",
+    "name": "VaidyaAI",
+    "slug": "vaidya-ai",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
@@ -16,20 +16,20 @@
     ],
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.ayurveda.gpt"
+      "bundleIdentifier": "com.vaidya.ai"
     },
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#053445"
       },
-      "package": "com.ayurveda.gpt"
+      "package": "com.vaidya.ai"
     },
     "web": {
       "favicon": "./assets/favicon.png",
-      "name": "AyurvedaGPT - Smart Prescription Assistant",
-      "shortName": "AyurvedaGPT",
-      "description": "AI-powered Ayurvedic prescription assistant for doctors to reduce errors and streamline prescriptions",
+      "name": "VaidyaAI - Smart Prescription Assistant",
+      "shortName": "VaidyaAI",
+      "description": "AI-powered Ayurvedic prescription assistant powered by traditional physician wisdom and modern technology",
       "themeColor": "#053445",
       "backgroundColor": "#053445",
       "display": "standalone",

@@ -141,7 +141,7 @@ function HomeScreen({
   return (
     <ScrollView style={styles.screen}>
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>🌿 AyurvedaGPT</Text>
+        <Text style={styles.headerTitle}>🌿 VaidyaAI</Text>
         <Text style={styles.headerSubtitle}>Smart Prescription Assistant</Text>
       </View>
 

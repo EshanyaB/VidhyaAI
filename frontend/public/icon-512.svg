@@ -43,6 +43,6 @@
   </g>
 
   <!-- App Name -->
-  <text x="256" y="425" font-size="48" font-weight="700" text-anchor="middle" fill="#6DB4CD" font-family="-apple-system, system-ui, sans-serif" letter-spacing="1">AyurvedaGPT</text>
+  <text x="256" y="425" font-size="48" font-weight="700" text-anchor="middle" fill="#6DB4CD" font-family="-apple-system, system-ui, sans-serif" letter-spacing="1">VaidyaAI</text>
   <text x="256" y="465" font-size="22" font-weight="500" text-anchor="middle" fill="#4B95AF" font-family="-apple-system, system-ui, sans-serif" letter-spacing="2">SMART PRESCRIPTION ASSISTANT</text>
 </svg>

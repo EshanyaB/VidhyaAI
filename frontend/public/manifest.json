@@ -1,8 +1,20 @@
 {
-  "short_name": "AyurvedaGPT",
-  "name": "AyurvedaGPT - Smart Prescription Assistant",
-  "description": "AI-powered Ayurvedic prescription assistant for doctors to reduce errors and streamline prescriptions",
+  "short_name": "VaidyaAI",
+  "name": "VaidyaAI - Smart Prescription Assistant",
+  "description": "AI-powered Ayurvedic prescription assistant powered by traditional physician wisdom and modern technology",
   "icons": [
+    {
+      "src": "icon-192.png",
+      "type": "image/png",
+      "sizes": "192x192",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "icon-512.png",
+      "type": "image/png",
+      "sizes": "512x512",
+      "purpose": "any maskable"
+    },
     {
       "src": "icon-192.svg",
       "type": "image/svg+xml",

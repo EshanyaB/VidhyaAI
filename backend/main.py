@@ -65,7 +65,7 @@ async def search_medicines(request: MedicineRequest):
 Symptoms: {', '.join(request.symptoms)}
 Health Conditions: {', '.join(request.health_conditions)}
 
-Please provide a list of 5-8 BRANDED Ayurvedic medicines (commercial formulations) that would be appropriate for these symptoms and conditions.
+First, analyze and interpret the symptoms and health conditions provided (they may be in Hindi, Telugu, Tamil, or other Indian languages). Then provide a list of 5-8 BRANDED Ayurvedic medicines (commercial formulations) that would be appropriate.
 
 IMPORTANT GUIDELINES:
 - Suggest actual BRANDED medicines available in the market (e.g., "Chyawanprash", "Triphala Churna", "Liv.52", "Brahmi Vati", etc.)
@@ -81,11 +81,14 @@ For each medicine, provide:
 4. Best timing to take (e.g., "Before meals", "After meals", "Before bedtime")
 5. Any important precautions
 
+IMPORTANT: If you don't understand the symptoms or health conditions, do NOT provide generic medicines. The symptoms may be described in the patient's native language (such as Hindi, Telugu, Tamil, or other Indian languages) - try to interpret them accurately before suggesting medicines.
+
 Format your response as a JSON array with the following structure:
 [
   {{
     "name": "Brand/Medicine Name (Main constituents in brackets if needed)",
     "description": "What it treats, benefits, and key ingredients",
+    "understood_condition": "Your interpretation of the patient's symptoms/condition in English - explain what you understood from the input, especially if it was in a regional language",
     "recommended_dosage": "Dosage information with form",
     "timing": "When to take",
     "precautions": "Important precautions if any"
@@ -96,7 +99,7 @@ IMPORTANT: Return ONLY the JSON array, no additional text."""
 
         # Call OpenAI API
         response = client.chat.completions.create(
-            model="gpt-3.5-turbo",  # Use gpt-4 for better quality (but more expensive)
+            model="gpt-4o",  # Use gpt-4 for better quality (but more expensive)
             messages=[
                 {"role": "system", "content": "You are an expert Ayurvedic doctor. Always respond with valid JSON only."},
                 {"role": "user", "content": prompt}

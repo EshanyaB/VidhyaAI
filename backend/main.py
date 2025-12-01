@@ -60,43 +60,65 @@ async def search_medicines(request: MedicineRequest):
     """
     try:
         # Create prompt for OpenAI
-        prompt = f"""You are an expert Ayurvedic doctor. Based on the following patient information, suggest appropriate Ayurvedic medicines.
+        prompt = f"""You are an expert Ayurvedic doctor. Based on the following patient information, first diagnose the possible disease(s), then suggest appropriate Ayurvedic medicines.
 
 Symptoms: {', '.join(request.symptoms)}
 Health Conditions: {', '.join(request.health_conditions)}
 
-Please provide a list of 5-8 BRANDED Ayurvedic medicines (commercial formulations) that would be appropriate for these symptoms and conditions.
+STEP 1: DIAGNOSIS
+Based on the symptoms, provide:
+1. Primary possible disease/condition (most likely)
+2. Secondary possible diseases (if applicable)
+3. Brief explanation in Ayurvedic terms (Vata/Pitta/Kapha imbalance if relevant)
+
+STEP 2: MEDICINE RECOMMENDATIONS
+Please provide EXACTLY 8 Ayurvedic medicines (both proprietary branded and classical formulations) that would be appropriate for the diagnosed condition and symptoms.
 
 IMPORTANT GUIDELINES:
-- Suggest actual BRANDED medicines available in the market (e.g., "Chyawanprash", "Triphala Churna", "Liv.52", "Brahmi Vati", etc.)
-- Include both classical formulations (like Triphala, Dashamularishta) and modern branded products
-- Each medicine should be a POLYHERBAL FORMULATION (combination of multiple herbs/drugs), not single herbs
-- Include the main constituent herbs/drugs in the description
-- Focus on medicines commonly prescribed by Ayurvedic practitioners
+- Include PROPRIETARY BRANDED medicines from companies like:
+  * Acharya Shushruta (e.g vahinil)
+  * Himalaya (e.g., Liv.52, Mentat, Brahmi, Ashvagandha)
+  * Dabur (e.g., Chyawanprash, Honitus, Stresscom)
+  * Baidyanath (e.g., Kesari Kalp, Ashwagandharishta, Brahmi Vati)
+  * Patanjali (e.g., Divya medicines)
+  * Zandu (e.g., Pancharishta, Chyawanprash)
+  * Other well-known brands
+- Also include CLASSICAL Ayurvedic formulations (e.g., Triphala, Dashamularishta, Ashwagandharishta)
+- Each medicine should be a POLYHERBAL/MULTI-INGREDIENT FORMULATION (combination of multiple herbs/drugs)
+- Include the brand name AND main constituent herbs/drugs in the description
+- Focus on medicines commonly prescribed and easily available in the market
+- Provide a good mix of different dosage forms: tablets, syrups, churnas (powders), capsules, etc.
 
 For each medicine, provide:
-1. Brand/Product name (commercial name if available, otherwise classical formulation name)
+1. Brand/Product name with company if proprietary (e.g., "Himalaya Liv.52", "Dabur Chyawanprash", or "Triphala Churna")
 2. Brief description including main herbs/constituents and what it treats
-3. Recommended dosage (tablets, syrup, churna, etc.)
+3. Recommended dosage with specific form (tablets, syrup, churna, capsules)
 4. Best timing to take (e.g., "Before meals", "After meals", "Before bedtime")
-5. Any important precautions
+5. Any important precautions or contraindications
 
-Format your response as a JSON array with the following structure:
-[
-  {{
-    "name": "Brand/Medicine Name (Main constituents in brackets if needed)",
-    "description": "What it treats, benefits, and key ingredients",
-    "recommended_dosage": "Dosage information with form",
-    "timing": "When to take",
-    "precautions": "Important precautions if any"
-  }}
-]
+Format your response as a JSON object with diagnosis and medicines:
+{{
+  "diagnosis": {{
+    "primary_condition": "Primary disease/condition name",
+    "secondary_conditions": ["Secondary condition 1", "Secondary condition 2"],
+    "ayurvedic_analysis": "Brief explanation of dosha imbalance and Ayurvedic perspective"
+  }},
+  "medicines": [
+    {{
+      "name": "Brand/Company Name + Product Name (if branded)",
+      "description": "What it treats, benefits, and key ingredients/herbs",
+      "recommended_dosage": "Specific dosage with form (e.g., 2 tablets, 10ml syrup, 3g churna)",
+      "timing": "When to take",
+      "precautions": "Important precautions if any"
+    }}
+  ]
+}}
 
-IMPORTANT: Return ONLY the JSON array, no additional text."""
+IMPORTANT: Return ONLY the JSON object with diagnosis and EXACTLY 8 medicines, no additional text."""
 
         # Call OpenAI API
         response = client.chat.completions.create(
-            model="gpt-3.5-turbo",  # Use gpt-4 for better quality (but more expensive)
+            model="gpt-4o",  # Use gpt-4 for better quality (but more expensive)
             messages=[
                 {"role": "system", "content": "You are an expert Ayurvedic doctor. Always respond with valid JSON only."},
                 {"role": "user", "content": prompt}
@@ -109,16 +131,17 @@ IMPORTANT: Return ONLY the JSON array, no additional text."""
         import json
         response_text = response.choices[0].message.content
 
-        # Extract JSON from response
-        start_idx = response_text.find('[')
-        end_idx = response_text.rfind(']') + 1
+        # Extract JSON from response (looking for object, not array)
+        start_idx = response_text.find('{')
+        end_idx = response_text.rfind('}') + 1
         json_text = response_text[start_idx:end_idx]
 
-        medicines = json.loads(json_text)
+        result = json.loads(json_text)
 
         return {
             "success": True,
-            "medicines": medicines
+            "diagnosis": result.get("diagnosis", {}),
+            "medicines": result.get("medicines", [])
         }
 
     except Exception as e:

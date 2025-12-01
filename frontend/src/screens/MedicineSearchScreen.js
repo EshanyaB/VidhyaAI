@@ -24,6 +24,7 @@ export default function MedicineSearchScreen({
 }) {
   const [loading, setLoading] = useState(false);
   const [suggestedMedicines, setSuggestedMedicines] = useState([]);
+  const [diagnosis, setDiagnosis] = useState(null);
   const [showCustomForm, setShowCustomForm] = useState(false);
   const [customMedicine, setCustomMedicine] = useState({
     name: '',
@@ -69,6 +70,7 @@ export default function MedicineSearchScreen({
       });
 
       if (response.data.success) {
+        setDiagnosis(response.data.diagnosis);
         setSuggestedMedicines(response.data.medicines);
       }
     } catch (error) {
@@ -195,6 +197,38 @@ export default function MedicineSearchScreen({
           </>
         )}
       </View>
+
+      {diagnosis && (
+        <View style={styles.diagnosisBox}>
+          <Text style={styles.diagnosisTitle}>🩺 AI Diagnosis</Text>
+          <View style={styles.diagnosisContent}>
+            <Text style={styles.diagnosisLabel}>Primary Condition:</Text>
+            <Text style={styles.diagnosisPrimary}>{diagnosis.primary_condition}</Text>
+
+            {diagnosis.secondary_conditions && diagnosis.secondary_conditions.length > 0 && (
+              <>
+                <Text style={[styles.diagnosisLabel, { marginTop: 12 }]}>
+                  Other Possibilities:
+                </Text>
+                <Text style={styles.diagnosisSecondary}>
+                  {diagnosis.secondary_conditions.join(', ')}
+                </Text>
+              </>
+            )}
+
+            {diagnosis.ayurvedic_analysis && (
+              <>
+                <Text style={[styles.diagnosisLabel, { marginTop: 12 }]}>
+                  Ayurvedic Analysis:
+                </Text>
+                <Text style={styles.diagnosisAnalysis}>
+                  {diagnosis.ayurvedic_analysis}
+                </Text>
+              </>
+            )}
+          </View>
+        </View>
+      )}
 
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>
@@ -489,6 +523,53 @@ const styles = StyleSheet.create({
   infoText: {
     color: 'white',
     fontSize: 14,
+  },
+  diagnosisBox: {
+    backgroundColor: '#E8F4F8',
+    margin: 15,
+    padding: 20,
+    borderRadius: 12,
+    borderLeftWidth: 5,
+    borderLeftColor: '#297691',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 4,
+    elevation: 4,
+  },
+  diagnosisTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#053445',
+    marginBottom: 15,
+  },
+  diagnosisContent: {
+    backgroundColor: 'white',
+    padding: 15,
+    borderRadius: 8,
+  },
+  diagnosisLabel: {
+    fontSize: 12,
+    fontWeight: 'bold',
+    color: '#4B95AF',
+    marginBottom: 5,
+    textTransform: 'uppercase',
+  },
+  diagnosisPrimary: {
+    fontSize: 17,
+    fontWeight: 'bold',
+    color: '#053445',
+    marginBottom: 5,
+  },
+  diagnosisSecondary: {
+    fontSize: 14,
+    color: '#19647F',
+    fontStyle: 'italic',
+  },
+  diagnosisAnalysis: {
+    fontSize: 14,
+    color: '#053445',
+    lineHeight: 20,
   },
   section: {
     backgroundColor: 'white',

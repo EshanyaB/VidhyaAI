@@ -12,7 +12,7 @@ import {
 } from 'react-native';
 import axios from 'axios';
 
-const API_URL = 'http://192.168.0.116:8000'; // Backend URL (use IP for mobile devices)
+const API_URL = 'https://vidhyaai-backend.onrender.com'; // Production backend URL
 
 export default function MedicineSearchScreen({
   symptoms,

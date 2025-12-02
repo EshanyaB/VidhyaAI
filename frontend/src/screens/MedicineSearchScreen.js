@@ -164,7 +164,7 @@ export default function MedicineSearchScreen({
           Preparing Ayurvedic Medicines...
         </Text>
         <Text style={styles.loadingSubtext}>
-          🤖 AI is analyzing your symptoms and health conditions
+           VidyaAI is analyzing your symptoms and health conditions
         </Text>
         <Text style={styles.loadingSubtext2}>
           Please wait while we find the best remedies

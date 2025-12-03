@@ -179,6 +179,34 @@ async def get_me(current_user: dict = Depends(get_current_user)):
 
     return {"success": True, "user": user_data}
 
+# Admin/Debug endpoints
+@app.get("/api/admin/users")
+async def list_all_users():
+    """Debug endpoint to view all users in database (for checking PostgreSQL)"""
+    conn = db.get_connection()
+    cursor = conn.cursor()
+
+    try:
+        # Import USE_POSTGRES from database module
+        from database import USE_POSTGRES
+
+        if USE_POSTGRES:
+            cursor.execute("SELECT id, email, name, phone, registration_number, created_at FROM users ORDER BY created_at DESC")
+        else:
+            cursor.execute("SELECT id, email, name, phone, registration_number, created_at FROM users ORDER BY created_at DESC")
+
+        users = cursor.fetchall()
+        users_list = [dict(user) for user in users]
+
+        return {
+            "success": True,
+            "database_type": "PostgreSQL" if USE_POSTGRES else "SQLite",
+            "user_count": len(users_list),
+            "users": users_list
+        }
+    finally:
+        conn.close()
+
 # Patient endpoints
 @app.post("/api/patients")
 async def create_patient(patient: PatientCreate, current_user: dict = Depends(get_current_user)):

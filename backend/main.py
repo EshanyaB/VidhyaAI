@@ -1,10 +1,12 @@
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import List, Optional
 from openai import OpenAI
 import os
 from dotenv import load_dotenv
+from database import db
+from auth import hash_password, verify_password, create_access_token, get_current_user
 
 load_dotenv()
 
@@ -39,6 +41,11 @@ class PrescriptionItem(BaseModel):
     timing: str
     duration: Optional[str] = None
 
+class DiagnosisData(BaseModel):
+    primary_condition: Optional[str] = ""
+    secondary_conditions: Optional[List[str]] = []
+    ayurvedic_analysis: Optional[str] = ""
+
 class GeneratePrescriptionRequest(BaseModel):
     patient_name: str
     patient_age: int
@@ -48,19 +55,237 @@ class GeneratePrescriptionRequest(BaseModel):
     medicines: List[PrescriptionItem]
     doctor_name: str
     doctor_registration: Optional[str] = None
+    diagnosis: Optional[DiagnosisData] = None
+
+# Auth models
+class RegisterRequest(BaseModel):
+    email: str
+    password: str
+    name: str
+    phone: Optional[str] = None
+    registration_number: Optional[str] = None
+
+class LoginRequest(BaseModel):
+    email: str
+    password: str
+
+class PatientCreate(BaseModel):
+    name: str
+    age: int
+    gender: str
+    phone: Optional[str] = None
+
+class PrescriptionCreate(BaseModel):
+    patient_id: int
+    symptoms: List[str]
+    health_conditions: List[str]
+    diagnosis: dict
+    medicines: List[dict]
+    notes: Optional[str] = None
 
 @app.get("/")
 async def root():
     return {"message": "AyurvedaGPT API is running"}
 
+# Authentication endpoints
+@app.post("/api/auth/register")
+async def register(request: RegisterRequest):
+    """Register a new doctor/user"""
+    # Check if user already exists
+    existing_user = db.get_user_by_email(request.email)
+    if existing_user:
+        raise HTTPException(status_code=400, detail="Email already registered")
+
+    # Hash password
+    hashed_password = hash_password(request.password)
+
+    # Create user
+    user_id = db.create_user(
+        email=request.email,
+        password=hashed_password,
+        name=request.name,
+        phone=request.phone,
+        registration_number=request.registration_number
+    )
+
+    if not user_id:
+        raise HTTPException(status_code=500, detail="Failed to create user")
+
+    # Create access token
+    access_token = create_access_token(data={"user_id": user_id, "email": request.email})
+
+    # Get user data
+    user = db.get_user_by_id(user_id)
+    user_data = {
+        "id": user["id"],
+        "email": user["email"],
+        "name": user["name"],
+        "phone": user["phone"],
+        "registration_number": user["registration_number"]
+    }
+
+    return {
+        "success": True,
+        "access_token": access_token,
+        "token_type": "bearer",
+        "user": user_data
+    }
+
+@app.post("/api/auth/login")
+async def login(request: LoginRequest):
+    """Login user"""
+    # Get user
+    user = db.get_user_by_email(request.email)
+    if not user:
+        raise HTTPException(status_code=401, detail="Invalid email or password")
+
+    # Verify password
+    if not verify_password(request.password, user["password"]):
+        raise HTTPException(status_code=401, detail="Invalid email or password")
+
+    # Create access token
+    access_token = create_access_token(data={"user_id": user["id"], "email": user["email"]})
+
+    # User data (exclude password)
+    user_data = {
+        "id": user["id"],
+        "email": user["email"],
+        "name": user["name"],
+        "phone": user["phone"],
+        "registration_number": user["registration_number"]
+    }
+
+    return {
+        "success": True,
+        "access_token": access_token,
+        "token_type": "bearer",
+        "user": user_data
+    }
+
+@app.get("/api/auth/me")
+async def get_me(current_user: dict = Depends(get_current_user)):
+    """Get current logged-in user"""
+    user = db.get_user_by_id(current_user["user_id"])
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    user_data = {
+        "id": user["id"],
+        "email": user["email"],
+        "name": user["name"],
+        "phone": user["phone"],
+        "registration_number": user["registration_number"]
+    }
+
+    return {"success": True, "user": user_data}
+
+# Patient endpoints
+@app.post("/api/patients")
+async def create_patient(patient: PatientCreate, current_user: dict = Depends(get_current_user)):
+    """Create a new patient"""
+    patient_id = db.create_patient(
+        user_id=current_user["user_id"],
+        name=patient.name,
+        age=patient.age,
+        gender=patient.gender,
+        phone=patient.phone
+    )
+
+    patient_data = db.get_patient(patient_id, current_user["user_id"])
+    return {"success": True, "patient": patient_data}
+
+@app.get("/api/patients")
+async def get_patients(current_user: dict = Depends(get_current_user)):
+    """Get all patients for current user"""
+    patients = db.get_user_patients(current_user["user_id"])
+    return {"success": True, "patients": patients}
+
+@app.get("/api/patients/{patient_id}")
+async def get_patient(patient_id: int, current_user: dict = Depends(get_current_user)):
+    """Get a specific patient"""
+    patient = db.get_patient(patient_id, current_user["user_id"])
+    if not patient:
+        raise HTTPException(status_code=404, detail="Patient not found")
+    return {"success": True, "patient": patient}
+
+@app.get("/api/patients/{patient_id}/prescriptions")
+async def get_patient_prescriptions(patient_id: int, current_user: dict = Depends(get_current_user)):
+    """Get all prescriptions for a patient"""
+    prescriptions = db.get_patient_prescriptions(patient_id, current_user["user_id"])
+    return {"success": True, "prescriptions": prescriptions}
+
+# Prescription endpoints
+@app.post("/api/prescriptions")
+async def create_prescription(prescription: PrescriptionCreate, current_user: dict = Depends(get_current_user)):
+    """Save a prescription"""
+    # Verify patient belongs to user
+    patient = db.get_patient(prescription.patient_id, current_user["user_id"])
+    if not patient:
+        raise HTTPException(status_code=404, detail="Patient not found")
+
+    prescription_id = db.create_prescription(
+        user_id=current_user["user_id"],
+        patient_id=prescription.patient_id,
+        symptoms=prescription.symptoms,
+        health_conditions=prescription.health_conditions,
+        diagnosis=prescription.diagnosis,
+        medicines=prescription.medicines,
+        notes=prescription.notes
+    )
+
+    prescription_data = db.get_prescription(prescription_id, current_user["user_id"])
+    return {"success": True, "prescription": prescription_data}
+
+@app.get("/api/prescriptions")
+async def get_prescriptions(current_user: dict = Depends(get_current_user)):
+    """Get recent prescriptions for current user"""
+    prescriptions = db.get_user_prescriptions(current_user["user_id"])
+    return {"success": True, "prescriptions": prescriptions}
+
 @app.post("/api/medicines/search")
-async def search_medicines(request: MedicineRequest):
+async def search_medicines(request: MedicineRequest, current_user: dict = Depends(get_current_user)):
     """
-    Search for Ayurvedic medicines based on symptoms and health conditions using AI
+    Search for Ayurvedic medicines based on symptoms, health conditions, and historical data
+    Uses past prescriptions as primary source, AI as fallback
     """
     try:
-        # Create prompt for OpenAI
-        prompt = f"""You are an expert Ayurvedic doctor. Based on the following patient information, first diagnose the possible disease(s), then suggest appropriate Ayurvedic medicines.
+        # Step 1: Find similar prescriptions from database
+        similar_prescriptions = db.find_similar_prescriptions(
+            symptoms=request.symptoms,
+            health_conditions=request.health_conditions,
+            user_id=current_user["user_id"],  # Only this doctor's prescriptions
+            limit=5
+        )
+
+        # Step 2: Extract medicines from similar prescriptions
+        historical_medicines = []
+        seen_medicine_names = set()
+
+        for prescription in similar_prescriptions:
+            for med in prescription['medicines']:
+                med_name = med.get('medicine_name', '')
+                # Avoid duplicates
+                if med_name and med_name not in seen_medicine_names:
+                    seen_medicine_names.add(med_name)
+                    historical_medicines.append({
+                        "name": med_name,
+                        "description": f"Previously prescribed for similar symptoms (Match: {prescription['symptom_matches']} symptoms, {prescription['condition_matches']} conditions)",
+                        "recommended_dosage": med.get('dosage', ''),
+                        "timing": med.get('timing', ''),
+                        "precautions": None,
+                        "source": "historical",
+                        "similarity_score": prescription['similarity_score']
+                    })
+
+        # Step 3: Use AI only if we don't have enough historical data
+        target_count = 8
+        diagnosis = None
+        ai_medicines = []
+
+        if len(historical_medicines) < target_count:
+            # Not enough historical data, use AI
+            # Create prompt for OpenAI
+            prompt = f"""You are an expert Ayurvedic doctor. Based on the following patient information, first diagnose the possible disease(s), then suggest appropriate Ayurvedic medicines.
 
 Symptoms: {', '.join(request.symptoms)}
 Health Conditions: {', '.join(request.health_conditions)}
@@ -114,34 +339,67 @@ Format your response as a JSON object with diagnosis and medicines:
   ]
 }}
 
-IMPORTANT: Return ONLY the JSON object with diagnosis and EXACTLY 8 medicines, no additional text."""
+IMPORTANT: Return ONLY the JSON object with diagnosis and EXACTLY {target_count - len(historical_medicines)} medicines, no additional text."""
 
-        # Call OpenAI API
-        response = client.chat.completions.create(
-            model="gpt-4o",  # Use gpt-4 for better quality (but more expensive)
-            messages=[
-                {"role": "system", "content": "You are an expert Ayurvedic doctor. Always respond with valid JSON only."},
-                {"role": "user", "content": prompt}
-            ],
-            temperature=0.7,
-            max_tokens=2000
-        )
+            # Call OpenAI API
+            response = client.chat.completions.create(
+                model="gpt-4o",
+                messages=[
+                    {"role": "system", "content": "You are an expert Ayurvedic doctor. Always respond with valid JSON only."},
+                    {"role": "user", "content": prompt}
+                ],
+                temperature=0.7,
+                max_tokens=2000
+            )
 
-        # Parse the response
-        import json
-        response_text = response.choices[0].message.content
+            # Parse the response
+            import json
+            response_text = response.choices[0].message.content
 
-        # Extract JSON from response (looking for object, not array)
-        start_idx = response_text.find('{')
-        end_idx = response_text.rfind('}') + 1
-        json_text = response_text[start_idx:end_idx]
+            # Extract JSON from response
+            start_idx = response_text.find('{')
+            end_idx = response_text.rfind('}') + 1
+            json_text = response_text[start_idx:end_idx]
 
-        result = json.loads(json_text)
+            result = json.loads(json_text)
+
+            # Get diagnosis and medicines from AI
+            diagnosis = result.get("diagnosis", {})
+            ai_medicines_raw = result.get("medicines", [])
+
+            # Add source label to AI medicines
+            for med in ai_medicines_raw:
+                med['source'] = 'ai'
+                ai_medicines.append(med)
+
+        # Step 4: Combine historical and AI medicines
+        # Prioritize historical medicines (they come first)
+        combined_medicines = historical_medicines + ai_medicines
+
+        # Use diagnosis from historical prescription if available, otherwise from AI
+        if similar_prescriptions and similar_prescriptions[0].get('diagnosis_primary'):
+            diagnosis = {
+                "primary_condition": similar_prescriptions[0]['diagnosis_primary'],
+                "secondary_conditions": similar_prescriptions[0]['diagnosis_secondary'],
+                "ayurvedic_analysis": similar_prescriptions[0].get('diagnosis_ayurvedic', '')
+            }
+        elif not diagnosis:
+            # No historical diagnosis and no AI diagnosis
+            diagnosis = {
+                "primary_condition": "",
+                "secondary_conditions": [],
+                "ayurvedic_analysis": ""
+            }
 
         return {
             "success": True,
-            "diagnosis": result.get("diagnosis", {}),
-            "medicines": result.get("medicines", [])
+            "diagnosis": diagnosis,
+            "medicines": combined_medicines[:target_count],  # Limit to target count
+            "source_info": {
+                "historical_count": len(historical_medicines),
+                "ai_count": len(ai_medicines),
+                "total_count": len(combined_medicines)
+            }
         }
 
     except Exception as e:
@@ -151,11 +409,69 @@ IMPORTANT: Return ONLY the JSON object with diagnosis and EXACTLY 8 medicines, n
         raise HTTPException(status_code=500, detail=f"Error searching medicines: {str(e)}")
 
 @app.post("/api/prescription/generate")
-async def generate_prescription(request: GeneratePrescriptionRequest):
+async def generate_prescription(request: GeneratePrescriptionRequest, current_user: dict = Depends(get_current_user)):
     """
-    Generate a formatted prescription document
+    Generate a formatted prescription document and save to database
     """
     try:
+        # Step 1: Check if patient exists (by name, age, gender for this user)
+        existing_patients = db.get_user_patients(current_user["user_id"])
+        patient = None
+        for p in existing_patients:
+            if (p['name'].lower() == request.patient_name.lower() and
+                p['age'] == request.patient_age and
+                p['gender'].lower() == request.patient_gender.lower()):
+                patient = p
+                break
+
+        # Step 2: Create patient if doesn't exist
+        if not patient:
+            patient_id = db.create_patient(
+                user_id=current_user["user_id"],
+                name=request.patient_name,
+                age=request.patient_age,
+                gender=request.patient_gender,
+                phone=None
+            )
+            patient = db.get_patient(patient_id, current_user["user_id"])
+
+        # Step 3: Save prescription to database
+        # Convert medicines list to dict format for database
+        medicines_data = [
+            {
+                "medicine_name": med.medicine_name,
+                "dosage": med.dosage,
+                "timing": med.timing,
+                "duration": med.duration or ""
+            }
+            for med in request.medicines
+        ]
+
+        # Use diagnosis from request or create empty dict if not provided
+        if request.diagnosis:
+            diagnosis = {
+                "primary_condition": request.diagnosis.primary_condition or "",
+                "secondary_conditions": request.diagnosis.secondary_conditions or [],
+                "ayurvedic_analysis": request.diagnosis.ayurvedic_analysis or ""
+            }
+        else:
+            diagnosis = {
+                "primary_condition": "",
+                "secondary_conditions": [],
+                "ayurvedic_analysis": ""
+            }
+
+        prescription_id = db.create_prescription(
+            user_id=current_user["user_id"],
+            patient_id=patient["id"],
+            symptoms=request.symptoms,
+            health_conditions=request.health_conditions,
+            diagnosis=diagnosis,
+            medicines=medicines_data,
+            notes=None
+        )
+
+        # Step 4: Generate HTML prescription
         # Create HTML prescription format
         prescription_html = f"""
 <!DOCTYPE html>
@@ -378,7 +694,10 @@ async def generate_prescription(request: GeneratePrescriptionRequest):
 
         return {
             "success": True,
-            "prescription_html": prescription_html
+            "prescription_html": prescription_html,
+            "prescription_id": prescription_id,
+            "patient_id": patient["id"],
+            "patient_name": patient["name"]
         }
 
     except Exception as e:

@@ -4,42 +4,47 @@ import {
   View,
   ScrollView,
   Text,
-  TextInput,
   TouchableOpacity,
   ActivityIndicator,
-  Alert,
   Modal,
 } from 'react-native';
 import axios from 'axios';
 import * as Print from 'expo-print';
 import * as Sharing from 'expo-sharing';
+import Toast from '../components/Toast';
+import storage from '../utils/storage';
 
-const API_URL = 'https://vidhyaai-backend.onrender.com'; // Production backend URL
+const API_URL = 'http://localhost:8000'; // Backend URL
 
 export default function PrescriptionScreen({
+  user,
   patientInfo,
   symptoms,
   healthConditions,
   selectedMedicines,
+  diagnosis,
   onBack,
   onReset,
 }) {
-  const [doctorInfo, setDoctorInfo] = useState({
-    name: '',
-    registration: '',
-  });
   const [loading, setLoading] = useState(false);
   const [prescriptionHtml, setPrescriptionHtml] = useState('');
   const [showPreview, setShowPreview] = useState(false);
+  const [toast, setToast] = useState({ visible: false, message: '', type: 'success' });
+
+  const showToast = (message, type = 'error') => {
+    setToast({ visible: true, message, type });
+  };
+
+  const hideToast = () => {
+    setToast({ ...toast, visible: false });
+  };
 
   const generatePrescription = async () => {
-    if (!doctorInfo.name.trim()) {
-      Alert.alert('Error', 'Please enter doctor name');
-      return;
-    }
-
     setLoading(true);
     try {
+      // Get authentication token
+      const token = await storage.getItem('token');
+
       const response = await axios.post(
         `${API_URL}/api/prescription/generate`,
         {
@@ -54,8 +59,17 @@ export default function PrescriptionScreen({
             timing: med.timing,
             duration: med.duration || '',
           })),
-          doctor_name: doctorInfo.name,
-          doctor_registration: doctorInfo.registration || null,
+          doctor_name: user.name,
+          diagnosis: diagnosis || {
+            primary_condition: "",
+            secondary_conditions: [],
+            ayurvedic_analysis: ""
+          },
+        },
+        {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+          },
         }
       );
 
@@ -64,10 +78,7 @@ export default function PrescriptionScreen({
         setShowPreview(true);
       }
     } catch (error) {
-      Alert.alert(
-        'Error',
-        'Failed to generate prescription. Please check if the backend is running.'
-      );
+      showToast('Failed to generate prescription. Please check if the backend is running.', 'error');
       console.error(error);
     } finally {
       setLoading(false);
@@ -80,7 +91,7 @@ export default function PrescriptionScreen({
         html: prescriptionHtml,
       });
     } catch (error) {
-      Alert.alert('Error', 'Failed to print prescription');
+      showToast('Failed to print prescription', 'error');
       console.error(error);
     }
   };
@@ -94,10 +105,10 @@ export default function PrescriptionScreen({
       if (await Sharing.isAvailableAsync()) {
         await Sharing.shareAsync(uri);
       } else {
-        Alert.alert('Sharing not available on this device');
+        showToast('Sharing not available on this device', 'warning');
       }
     } catch (error) {
-      Alert.alert('Error', 'Failed to share prescription');
+      showToast('Failed to share prescription', 'error');
       console.error(error);
     }
   };
@@ -112,116 +123,105 @@ export default function PrescriptionScreen({
   }
 
   return (
-    <ScrollView style={styles.container}>
-      <View style={styles.header}>
-        <TouchableOpacity onPress={onBack} style={styles.backButton}>
-          <Text style={styles.backButtonText}>← Back</Text>
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>Generate Prescription</Text>
-      </View>
+    <>
+      {/* Toast Notification */}
+      <Toast
+        visible={toast.visible}
+        message={toast.message}
+        type={toast.type}
+        onHide={hideToast}
+      />
 
-      <View style={styles.summarySection}>
-        <Text style={styles.summaryTitle}>Prescription Summary</Text>
-
-        <View style={styles.summaryRow}>
-          <Text style={styles.summaryLabel}>Patient:</Text>
-          <Text style={styles.summaryValue}>
-            {patientInfo.name}, {patientInfo.age} years, {patientInfo.gender}
-          </Text>
+      <ScrollView style={styles.container}>
+        <View style={styles.header}>
+          <TouchableOpacity onPress={onBack} style={styles.backButton}>
+            <Text style={styles.backButtonText}>← Back</Text>
+          </TouchableOpacity>
+          <Text style={styles.headerTitle}>Generate Prescription</Text>
         </View>
 
-        <View style={styles.summaryRow}>
-          <Text style={styles.summaryLabel}>Symptoms:</Text>
-          <Text style={styles.summaryValue}>{symptoms.join(', ')}</Text>
-        </View>
+        <View style={styles.summarySection}>
+          <Text style={styles.summaryTitle}>Prescription Summary</Text>
 
-        {healthConditions.length > 0 && (
           <View style={styles.summaryRow}>
-            <Text style={styles.summaryLabel}>Conditions:</Text>
+            <Text style={styles.summaryLabel}>Patient:</Text>
             <Text style={styles.summaryValue}>
-              {healthConditions.join(', ')}
+              {patientInfo.name}, {patientInfo.age} years, {patientInfo.gender}
             </Text>
           </View>
-        )}
 
-        <View style={styles.summaryRow}>
-          <Text style={styles.summaryLabel}>Medicines:</Text>
-          <Text style={styles.summaryValue}>
-            {selectedMedicines.length} prescribed
-          </Text>
+          <View style={styles.summaryRow}>
+            <Text style={styles.summaryLabel}>Symptoms:</Text>
+            <Text style={styles.summaryValue}>{symptoms.join(', ')}</Text>
+          </View>
+
+          {healthConditions.length > 0 && (
+            <View style={styles.summaryRow}>
+              <Text style={styles.summaryLabel}>Conditions:</Text>
+              <Text style={styles.summaryValue}>
+                {healthConditions.join(', ')}
+              </Text>
+            </View>
+          )}
+
+          <View style={styles.summaryRow}>
+            <Text style={styles.summaryLabel}>Medicines:</Text>
+            <Text style={styles.summaryValue}>
+              {selectedMedicines.length} prescribed
+            </Text>
+          </View>
         </View>
-      </View>
 
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Prescribed Medicines</Text>
-        {selectedMedicines.map((med, index) => (
-          <View key={index} style={styles.medicineItem}>
-            <View style={styles.medicineNumber}>
-              <Text style={styles.medicineNumberText}>{index + 1}</Text>
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Prescribed Medicines</Text>
+          {selectedMedicines.map((med, index) => (
+            <View key={index} style={styles.medicineItem}>
+              <View style={styles.medicineNumber}>
+                <Text style={styles.medicineNumberText}>{index + 1}</Text>
+              </View>
+              <View style={styles.medicineDetails}>
+                <Text style={styles.medicineName}>{med.name}</Text>
+                <Text style={styles.medicineInfo}>📋 {med.dosage}</Text>
+                <Text style={styles.medicineInfo}>⏰ {med.timing}</Text>
+              </View>
             </View>
-            <View style={styles.medicineDetails}>
-              <Text style={styles.medicineName}>{med.name}</Text>
-              <Text style={styles.medicineInfo}>📋 {med.dosage}</Text>
-              <Text style={styles.medicineInfo}>⏰ {med.timing}</Text>
-            </View>
-          </View>
-        ))}
-      </View>
+          ))}
+        </View>
 
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Doctor Information</Text>
-        <TextInput
-          style={styles.input}
-          placeholder="Doctor Name *"
-          placeholderTextColor="#6DB4CD"
-          value={doctorInfo.name}
-          onChangeText={(text) => setDoctorInfo({ ...doctorInfo, name: text })}
-        />
-        <TextInput
-          style={styles.input}
-          placeholder="Registration Number (Optional)"
-          placeholderTextColor="#6DB4CD"
-          value={doctorInfo.registration}
-          onChangeText={(text) =>
-            setDoctorInfo({ ...doctorInfo, registration: text })
-          }
-        />
-      </View>
-
-      <View style={styles.buttonContainer}>
-        <TouchableOpacity
-          style={styles.generateButton}
-          onPress={generatePrescription}
-        >
-          <Text style={styles.generateButtonText}>
-            📄 Generate Prescription
-          </Text>
-        </TouchableOpacity>
-      </View>
-
-      {/* Prescription Preview Modal */}
-      <Modal
-        visible={showPreview}
-        animationType="slide"
-        onRequestClose={() => setShowPreview(false)}
-      >
-        <View style={styles.modalContainer}>
-          <View style={styles.modalHeader}>
-            <Text style={styles.modalTitle}>Prescription Preview</Text>
-            <TouchableOpacity onPress={() => setShowPreview(false)}>
-              <Text style={styles.closeButton}>✕</Text>
-            </TouchableOpacity>
-          </View>
-
-          <ScrollView style={styles.previewContainer}>
-            <Text style={styles.previewNote}>
-              Preview of the prescription. Use the buttons below to print or
-              share.
+        <View style={styles.buttonContainer}>
+          <TouchableOpacity
+            style={styles.generateButton}
+            onPress={generatePrescription}
+          >
+            <Text style={styles.generateButtonText}>
+              📄 Generate Prescription
             </Text>
+          </TouchableOpacity>
+        </View>
 
-            {/* Prescription Details */}
-            <View style={styles.prescriptionPreview}>
-              <View style={styles.previewHeader}>
+        {/* Prescription Preview Modal */}
+        <Modal
+          visible={showPreview}
+          animationType="slide"
+          onRequestClose={() => setShowPreview(false)}
+        >
+          <View style={styles.modalContainer}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Prescription Preview</Text>
+              <TouchableOpacity onPress={() => setShowPreview(false)}>
+                <Text style={styles.closeButton}>✕</Text>
+              </TouchableOpacity>
+            </View>
+
+            <ScrollView style={styles.previewContainer}>
+              <Text style={styles.previewNote}>
+                Preview of the prescription. Use the buttons below to print or
+                share.
+              </Text>
+
+              {/* Prescription Details */}
+              <View style={styles.prescriptionPreview}>
+                <View style={styles.previewHeader}>
                 <Text style={styles.previewHeaderTitle}>
                   🌿 AYURVEDIC PRESCRIPTION 🌿
                 </Text>
@@ -288,44 +288,40 @@ export default function PrescriptionScreen({
 
               <View style={styles.previewFooter}>
                 <Text style={styles.previewDoctorName}>
-                  Dr. {doctorInfo.name}
+                  Dr. {user.name}
                 </Text>
-                {doctorInfo.registration && (
-                  <Text style={styles.previewRegNo}>
-                    Registration No: {doctorInfo.registration}
-                  </Text>
-                )}
                 <Text style={styles.previewRole}>Ayurvedic Practitioner</Text>
+                </View>
               </View>
-            </View>
-          </ScrollView>
+            </ScrollView>
 
-          <View style={styles.modalActions}>
-            <TouchableOpacity
-              style={styles.actionButton}
-              onPress={printPrescription}
-            >
-              <Text style={styles.actionButtonText}>🖨️ Print</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[styles.actionButton, styles.shareButton]}
-              onPress={sharePrescription}
-            >
-              <Text style={styles.actionButtonText}>📤 Share</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[styles.actionButton, styles.newButton]}
-              onPress={() => {
-                setShowPreview(false);
-                onReset();
-              }}
-            >
-              <Text style={styles.actionButtonText}>🆕 New Prescription</Text>
-            </TouchableOpacity>
+            <View style={styles.modalActions}>
+              <TouchableOpacity
+                style={styles.actionButton}
+                onPress={printPrescription}
+              >
+                <Text style={styles.actionButtonText}>🖨️ Print</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.actionButton, styles.shareButton]}
+                onPress={sharePrescription}
+              >
+                <Text style={styles.actionButtonText}>📤 Share</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.actionButton, styles.newButton]}
+                onPress={() => {
+                  setShowPreview(false);
+                  onReset();
+                }}
+              >
+                <Text style={styles.actionButtonText}>🆕 New Prescription</Text>
+              </TouchableOpacity>
+            </View>
           </View>
-        </View>
-      </Modal>
-    </ScrollView>
+        </Modal>
+      </ScrollView>
+    </>
   );
 }
 

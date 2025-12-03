@@ -6,26 +6,28 @@ import {
   Text,
   TextInput,
   TouchableOpacity,
-  Alert,
   Animated,
   Easing,
 } from 'react-native';
 import axios from 'axios';
+import Toast from '../components/Toast';
 
-const API_URL = 'https://vidhyaai-backend.onrender.com'; // Production backend URL
+const API_URL = 'http://localhost:8000'; // Backend URL
 
 export default function MedicineSearchScreen({
   symptoms,
   healthConditions,
   selectedMedicines,
   setSelectedMedicines,
+  diagnosis,
+  setDiagnosis,
   onBack,
   onNext,
 }) {
   const [loading, setLoading] = useState(false);
   const [suggestedMedicines, setSuggestedMedicines] = useState([]);
-  const [diagnosis, setDiagnosis] = useState(null);
   const [showCustomForm, setShowCustomForm] = useState(false);
+  const [toast, setToast] = useState({ visible: false, message: '', type: 'success' });
   const [customMedicine, setCustomMedicine] = useState({
     name: '',
     dosage: '',
@@ -34,6 +36,14 @@ export default function MedicineSearchScreen({
 
   // Animation for pestle
   const pestleAnim = useRef(new Animated.Value(-20)).current;
+
+  const showToast = (message, type = 'error') => {
+    setToast({ visible: true, message, type });
+  };
+
+  const hideToast = () => {
+    setToast({ ...toast, visible: false });
+  };
 
   useEffect(() => {
     searchMedicines();
@@ -74,10 +84,7 @@ export default function MedicineSearchScreen({
         setSuggestedMedicines(response.data.medicines);
       }
     } catch (error) {
-      Alert.alert(
-        'Error',
-        'Failed to fetch medicine suggestions. Please check if the backend is running.'
-      );
+      showToast('Failed to fetch medicine suggestions. Please check if the backend is running.', 'error');
       console.error(error);
     } finally {
       setLoading(false);
@@ -136,7 +143,7 @@ export default function MedicineSearchScreen({
       setCustomMedicine({ name: '', dosage: '', timing: '' });
       setShowCustomForm(false);
     } else {
-      Alert.alert('Error', 'Please fill all fields for custom medicine');
+      showToast('Please fill all fields for custom medicine', 'error');
     }
   };
 
@@ -177,8 +184,17 @@ export default function MedicineSearchScreen({
   }
 
   return (
-    <ScrollView style={styles.container}>
-      <View style={styles.header}>
+    <>
+      {/* Toast Notification */}
+      <Toast
+        visible={toast.visible}
+        message={toast.message}
+        type={toast.type}
+        onHide={hideToast}
+      />
+
+      <ScrollView style={styles.container}>
+        <View style={styles.header}>
         <TouchableOpacity onPress={onBack} style={styles.backButton}>
           <Text style={styles.backButtonText}>← Back</Text>
         </TouchableOpacity>
@@ -254,7 +270,19 @@ export default function MedicineSearchScreen({
                   <Text style={styles.checkmark}>✓</Text>
                 )}
               </View>
-              <Text style={styles.medicineName}>{medicine.name}</Text>
+              <View style={styles.medicineHeaderContent}>
+                <Text style={styles.medicineName}>{medicine.name}</Text>
+                {medicine.source === 'historical' && (
+                  <View style={styles.historicalBadge}>
+                    <Text style={styles.badgeText}>📋 From History</Text>
+                  </View>
+                )}
+                {medicine.source === 'ai' && (
+                  <View style={styles.aiBadge}>
+                    <Text style={styles.badgeText}>🤖 AI</Text>
+                  </View>
+                )}
+              </View>
             </View>
 
             <Text style={styles.medicineDescription}>
@@ -413,7 +441,8 @@ export default function MedicineSearchScreen({
           </Text>
         </TouchableOpacity>
       </View>
-    </ScrollView>
+      </ScrollView>
+    </>
   );
 }
 
@@ -633,11 +662,37 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: 'bold',
   },
+  medicineHeaderContent: {
+    flex: 1,
+  },
   medicineName: {
     fontSize: 16,
     fontWeight: 'bold',
     color: '#053445',
-    flex: 1,
+    marginBottom: 4,
+  },
+  historicalBadge: {
+    backgroundColor: '#E8F4F8',
+    borderWidth: 1,
+    borderColor: '#19647F',
+    borderRadius: 12,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    alignSelf: 'flex-start',
+  },
+  aiBadge: {
+    backgroundColor: '#FFF4E6',
+    borderWidth: 1,
+    borderColor: '#F59E0B',
+    borderRadius: 12,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    alignSelf: 'flex-start',
+  },
+  badgeText: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#053445',
   },
   medicineDescription: {
     fontSize: 14,

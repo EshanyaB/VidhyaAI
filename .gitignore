@@ -27,6 +27,11 @@ wheels/
 venv/
 ENV/
 
+# SQLite database files
+*.db
+*.sqlite
+*.sqlite3
+
 # Node
 node_modules/
 npm-debug.log*

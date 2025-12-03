@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   StyleSheet,
   View,
@@ -11,15 +11,22 @@ import {
   StatusBar,
   Modal,
   Alert,
+  Platform,
 } from 'react-native';
 import { Provider as PaperProvider } from 'react-native-paper';
+import storage from './src/utils/storage';
 import PrescriptionScreen from './src/screens/PrescriptionScreen';
 import MedicineSearchScreen from './src/screens/MedicineSearchScreen';
 import SplashScreen from './src/components/SplashScreen';
+import AuthScreen from './src/screens/AuthScreen';
 
 export default function App() {
   const [showSplash, setShowSplash] = useState(true);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [user, setUser] = useState(null);
+  const [loading, setLoading] = useState(true);
   const [currentScreen, setCurrentScreen] = useState('home');
+  const [showLogoutModal, setShowLogoutModal] = useState(false);
   const [patientInfo, setPatientInfo] = useState({
     name: '',
     age: '',
@@ -28,6 +35,50 @@ export default function App() {
   const [symptoms, setSymptoms] = useState([]);
   const [healthConditions, setHealthConditions] = useState([]);
   const [selectedMedicines, setSelectedMedicines] = useState([]);
+  const [diagnosis, setDiagnosis] = useState(null);
+
+  // Check if user is logged in on app start
+  useEffect(() => {
+    checkAuth();
+  }, []);
+
+  const checkAuth = async () => {
+    try {
+      const token = await storage.getItem('token');
+      const userData = await storage.getItem('user');
+
+      if (token && userData) {
+        setUser(JSON.parse(userData));
+        setIsAuthenticated(true);
+      }
+    } catch (error) {
+      console.error('Auth check error:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleLogin = (userData) => {
+    setUser(userData);
+    setIsAuthenticated(true);
+  };
+
+  const handleLogout = () => {
+    setShowLogoutModal(true);
+  };
+
+  const confirmLogout = async () => {
+    await storage.removeItem('token');
+    await storage.removeItem('user');
+    setUser(null);
+    setIsAuthenticated(false);
+    setShowLogoutModal(false);
+    resetApp();
+  };
+
+  const cancelLogout = () => {
+    setShowLogoutModal(false);
+  };
 
   const resetApp = () => {
     setCurrentScreen('home');
@@ -35,10 +86,27 @@ export default function App() {
     setSymptoms([]);
     setHealthConditions([]);
     setSelectedMedicines([]);
+    setDiagnosis(null);
   };
 
   if (showSplash) {
     return <SplashScreen onFinish={() => setShowSplash(false)} />;
+  }
+
+  if (loading) {
+    return (
+      <View style={[styles.container, styles.centerContent]}>
+        <ActivityIndicator size="large" color="#19647F" />
+      </View>
+    );
+  }
+
+  if (!isAuthenticated) {
+    return (
+      <PaperProvider>
+        <AuthScreen onLogin={handleLogin} />
+      </PaperProvider>
+    );
   }
 
   return (
@@ -48,6 +116,8 @@ export default function App() {
 
         {currentScreen === 'home' && (
           <HomeScreen
+            user={user}
+            onLogout={handleLogout}
             patientInfo={patientInfo}
             setPatientInfo={setPatientInfo}
             symptoms={symptoms}
@@ -64,6 +134,8 @@ export default function App() {
             healthConditions={healthConditions}
             selectedMedicines={selectedMedicines}
             setSelectedMedicines={setSelectedMedicines}
+            diagnosis={diagnosis}
+            setDiagnosis={setDiagnosis}
             onBack={() => setCurrentScreen('home')}
             onNext={() => setCurrentScreen('prescription')}
           />
@@ -71,14 +143,47 @@ export default function App() {
 
         {currentScreen === 'prescription' && (
           <PrescriptionScreen
+            user={user}
             patientInfo={patientInfo}
             symptoms={symptoms}
             healthConditions={healthConditions}
             selectedMedicines={selectedMedicines}
+            diagnosis={diagnosis}
             onBack={() => setCurrentScreen('medicine-search')}
             onReset={resetApp}
           />
         )}
+
+        {/* Logout Confirmation Modal */}
+        <Modal
+          visible={showLogoutModal}
+          transparent={true}
+          animationType="fade"
+          onRequestClose={cancelLogout}
+        >
+          <View style={styles.modalOverlay}>
+            <View style={styles.modalContainer}>
+              <Text style={styles.modalTitle}>Logout</Text>
+              <Text style={styles.modalMessage}>
+                Are you sure you want to logout?
+              </Text>
+              <View style={styles.modalButtons}>
+                <TouchableOpacity
+                  style={[styles.modalButton, styles.cancelButton]}
+                  onPress={cancelLogout}
+                >
+                  <Text style={styles.cancelButtonText}>Cancel</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.modalButton, styles.logoutButton]}
+                  onPress={confirmLogout}
+                >
+                  <Text style={styles.logoutButtonText}>Logout</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
+        </Modal>
       </SafeAreaView>
     </PaperProvider>
   );
@@ -86,6 +191,8 @@ export default function App() {
 
 // Home Screen Component
 function HomeScreen({
+  user,
+  onLogout,
   patientInfo,
   setPatientInfo,
   symptoms,
@@ -141,8 +248,23 @@ function HomeScreen({
   return (
     <ScrollView style={styles.screen}>
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>🌿 VaidyaAI</Text>
-        <Text style={styles.headerSubtitle}>Smart Prescription Assistant</Text>
+        <View style={styles.headerTop}>
+          <View>
+            <Text style={styles.headerTitle}>🌿 VaidyaAI</Text>
+            <Text style={styles.headerSubtitle}>Smart Prescription Assistant</Text>
+          </View>
+          <TouchableOpacity style={styles.logoutButton} onPress={onLogout}>
+            <Text style={styles.logoutText}>Logout</Text>
+          </TouchableOpacity>
+        </View>
+        {user && (
+          <View style={styles.userInfoContainer}>
+            <Text style={styles.userWelcome}>Welcome, Dr. {user.name}!</Text>
+            {user.registration_number && (
+              <Text style={styles.userReg}>Reg: {user.registration_number}</Text>
+            )}
+          </View>
+        )}
       </View>
 
       <View style={styles.section}>
@@ -268,6 +390,10 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#f5f5f5',
   },
+  centerContent: {
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
   screen: {
     flex: 1,
   },
@@ -276,7 +402,6 @@ const styles = StyleSheet.create({
     padding: 24,
     paddingTop: 35,
     paddingBottom: 30,
-    alignItems: 'center',
     borderBottomLeftRadius: 30,
     borderBottomRightRadius: 30,
     shadowColor: '#000',
@@ -284,6 +409,44 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.3,
     shadowRadius: 8,
     elevation: 8,
+  },
+  headerTop: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    width: '100%',
+    marginBottom: 12,
+  },
+  logoutButton: {
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.3)',
+  },
+  logoutText: {
+    color: '#fff',
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  userInfoContainer: {
+    width: '100%',
+    marginTop: 8,
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(255, 255, 255, 0.2)',
+  },
+  userWelcome: {
+    fontSize: 16,
+    color: '#6DB4CD',
+    fontWeight: 'bold',
+    marginBottom: 4,
+  },
+  userReg: {
+    fontSize: 12,
+    color: '#FFFFFF',
+    opacity: 0.8,
   },
   headerTitle: {
     fontSize: 32,
@@ -470,5 +633,73 @@ const styles = StyleSheet.create({
   buttonDisabled: {
     backgroundColor: '#4B95AF',
     opacity: 0.4,
+  },
+  // Logout Modal Styles
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalContainer: {
+    backgroundColor: 'white',
+    borderRadius: 16,
+    padding: 24,
+    width: '85%',
+    maxWidth: 400,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 8,
+  },
+  modalTitle: {
+    fontSize: 22,
+    fontWeight: 'bold',
+    color: '#053445',
+    marginBottom: 12,
+    textAlign: 'center',
+  },
+  modalMessage: {
+    fontSize: 16,
+    color: '#4B95AF',
+    marginBottom: 24,
+    textAlign: 'center',
+    lineHeight: 22,
+  },
+  modalButtons: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    gap: 12,
+  },
+  modalButton: {
+    flex: 1,
+    paddingVertical: 14,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  cancelButton: {
+    backgroundColor: '#E8F4F8',
+    borderWidth: 2,
+    borderColor: '#4B95AF',
+  },
+  cancelButtonText: {
+    color: '#19647F',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  logoutButton: {
+    backgroundColor: '#053445',
+    shadowColor: '#053445',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+    elevation: 4,
+  },
+  logoutButtonText: {
+    color: 'white',
+    fontSize: 16,
+    fontWeight: 'bold',
   },
 });

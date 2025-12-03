@@ -14,7 +14,7 @@ import * as Sharing from 'expo-sharing';
 import Toast from '../components/Toast';
 import storage from '../utils/storage';
 
-const API_URL = 'http://localhost:8000'; // Backend URL
+const API_URL = 'https://vidhyaai-backend.onrender.com'; // Production backend URL
 
 export default function PrescriptionScreen({
   user,

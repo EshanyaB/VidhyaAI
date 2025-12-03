@@ -14,7 +14,7 @@ import axios from 'axios';
 import storage from '../utils/storage';
 import Toast from '../components/Toast';
 
-const API_URL = 'http://localhost:8000'; // Backend URL (use localhost for web, IP for mobile)
+const API_URL = 'https://vidhyaai-backend.onrender.com'; // Production backend URL
 
 export default function AuthScreen({ onLogin }) {
   const [isLogin, setIsLogin] = useState(true);

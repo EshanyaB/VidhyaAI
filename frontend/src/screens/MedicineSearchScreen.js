@@ -12,7 +12,7 @@ import {
 import axios from 'axios';
 import Toast from '../components/Toast';
 
-const API_URL = 'http://localhost:8000'; // Backend URL
+const API_URL = 'https://vidhyaai-backend.onrender.com'; // Production backend URL
 
 export default function MedicineSearchScreen({
   symptoms,
